@@ -62,6 +62,11 @@ if [[ "${host_arch}" != "aarch64" && "${host_arch}" != "arm64" ]]; then
     CMAKE_ARGS+=("-DCMAKE_TOOLCHAIN_FILE=${ROOT_DIR}/cmake/aarch64-linux-gnu.cmake")
 fi
 
+# Cross-building without an arm64 zlib installed: point at one, e.g. the one in the M5Stack sysroot.
+if [[ -n "${ZLIB_LIBRARY:-}" ]]; then
+    CMAKE_ARGS+=("-DZLIB_LIBRARY=${ZLIB_LIBRARY}")
+fi
+
 for command in "${CMAKE_BIN}" "${READELF_BIN}" dpkg-deb; do
     require_command "${command}"
 done

@@ -1069,24 +1069,50 @@ void populateAlbums(LibrarySnapshot& snapshot, bool showing_examples)
     Album all_music = makeAllMusicAlbum();
     all_music.track_count = snapshot.tracks.size();
 
+    // One entry per folder instead of one per album tag: folders are used as playlists here,
+    // and their songs come from many different albums. The bundled examples keep the grouping
+    // by tag: they all live in one folder and are meant to show what an album looks like.
     std::map<std::string, Album> albums;
     for (const auto& track : snapshot.tracks) {
         all_music.duration_ms += track.duration_ms;
         if (all_music.cover_path.empty() && !track.cover_path.empty()) {
             all_music.cover_path = track.cover_path;
         }
-        if (track.album.empty()) {
+
+        const std::string artist = track.album_artist.empty() ? track.artist : track.album_artist;
+        if (showing_examples) {
+            if (track.album.empty()) {
+                continue;
+            }
+            const std::string key = lowerAscii(track.album) + '\x1f' + lowerAscii(artist);
+            auto [iterator, inserted] = albums.try_emplace(key);
+            Album& album = iterator->second;
+            if (inserted) {
+                album.id = "album-" + hexHash(key);
+                album.title = track.album;
+                album.artist = artist;
+            }
+            ++album.track_count;
+            album.duration_ms += track.duration_ms;
+            if (album.cover_path.empty() && !track.cover_path.empty()) {
+                album.cover_path = track.cover_path;
+            }
             continue;
         }
 
-        const std::string artist = track.album_artist.empty() ? track.artist : track.album_artist;
-        const std::string key = lowerAscii(track.album) + '\x1f' + lowerAscii(artist);
+        const fs::path folder = track.path.parent_path();
+        const std::string key = lowerAscii(folder.string());
         auto [iterator, inserted] = albums.try_emplace(key);
         Album& album = iterator->second;
         if (inserted) {
-            album.id = "album-" + hexHash(key);
-            album.title = track.album;
+            album.id = "folder-" + hexHash(folder.string());
+            album.title = folder.filename().string();
+            album.folder = folder;
             album.artist = artist;
+        } else if (!album.artist.empty() && lowerAscii(album.artist) != lowerAscii(artist)) {
+            // Left empty when the folder mixes artists: the views then say "Various Artists".
+            // (A folder whose first song has no artist is shown the same way.)
+            album.artist.clear();
         }
         ++album.track_count;
         album.duration_ms += track.duration_ms;
@@ -1118,7 +1144,7 @@ std::shared_ptr<LibrarySnapshot> loadSnapshot(SQLite::Database& database, std::u
                external_cover_hash, lyrics_path, sidecar_lyrics_path, sidecar_lyrics_size_bytes,
                sidecar_lyrics_mtime_ns, sidecar_lyrics_hash, embedded_lyrics
         FROM tracks
-        ORDER BY lower(album), disc_number, track_number, lower(title), lower(path)
+        ORDER BY lower(path)
     )sql");
     while (query.executeStep()) {
         snapshot->tracks.push_back(trackFromQuery(query));

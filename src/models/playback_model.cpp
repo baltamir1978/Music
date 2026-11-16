@@ -251,7 +251,8 @@ private:
     PlaybackSnapshot _snapshot;
     std::vector<Track> _queue;
     std::size_t _queue_index = kNoQueueIndex;
-    PlaybackMode _mode = PlaybackMode::Sequential;
+    // Folders are playlists: shuffle unless the user picks another mode.
+    PlaybackMode _mode = PlaybackMode::Shuffle;
     std::uint64_t _revision_counter = 0;
     std::uint32_t _random_state = 0x83d2e1a7U;
 

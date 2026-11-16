@@ -59,6 +59,9 @@ struct Album {
     std::size_t track_count = 0;
     std::int64_t duration_ms = 0;
     bool all_music = false;
+    // Folder this entry stands for. Albums are the folders under the music directory, so that
+    // a folder used as a playlist stays together whatever the album tags of its songs say.
+    std::filesystem::path folder;
     GuideTopic guide_topic = GuideTopic::None;
 };
 

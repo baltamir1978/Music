@@ -279,10 +279,10 @@ void runLibraryTest(const fs::path& temporary)
     snapshot = model.snapshot();
     require(snapshot->tracks.size() == 1 && model.scanState().files_removed == 1,
             "incremental scan did not remove deleted track");
-    require(snapshot->albums.size() == 4 && snapshot->albums[1].guide_topic == music::GuideTopic::AddMusic &&
-                snapshot->albums[2].guide_topic == music::GuideTopic::CoverArt &&
-                snapshot->albums[3].guide_topic == music::GuideTopic::Lyrics,
-            "guides did not replace the removed real album");
+    // Entries are folders: the untagged song that is left still makes its folder one.
+    require(snapshot->albums.size() == 2 && snapshot->albums[1].folder == library &&
+                snapshot->albums[1].title == library.filename().string() && snapshot->albums[1].track_count == 1,
+            "the folder of the remaining untagged song was not listed");
 
     const fs::path unavailable = temporary / "library-away";
     fs::rename(library, unavailable);

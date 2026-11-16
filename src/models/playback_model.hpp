@@ -26,7 +26,7 @@ enum class PlaybackMode : std::uint8_t {
 
 struct PlaybackSnapshot {
     PlaybackState state = PlaybackState::Stopped;
-    PlaybackMode mode = PlaybackMode::Sequential;
+    PlaybackMode mode = PlaybackMode::Shuffle;
     std::int64_t track_id = 0;
     std::filesystem::path path;
     std::string title;

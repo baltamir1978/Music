@@ -532,7 +532,7 @@ void CoverFlowView::updateAlbumText(const Album* album)
 {
     const std::string title = album ? (album->title.empty() ? "Untitled Album" : album->title) : std::string{};
     const std::string artist =
-        album ? (album->all_music ? "Various Artists" : (album->artist.empty() ? "Unknown Artist" : album->artist))
+        album ? (album->all_music || album->artist.empty() ? "Various Artists" : album->artist)
               : std::string{};
     if (title != _shown_title) {
         _shown_title = title;

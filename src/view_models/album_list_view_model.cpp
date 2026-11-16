@@ -161,12 +161,17 @@ void AlbumListViewModel::rebuildTrackIndices()
         return;
     }
 
+    // An entry with a folder holds what is in that folder; one without (the bundled example
+    // album) is matched by its tags.
+    const bool by_folder = !selected_album->folder.empty();
     const std::string wanted_album = lowerAscii(selected_album->title);
     const std::string wanted_artist = lowerAscii(selected_album->artist);
     for (std::size_t index = 0; index < _snapshot->tracks.size(); ++index) {
         const Track& track = _snapshot->tracks[index];
-        if (selected_album->all_music ||
-            (lowerAscii(track.album) == wanted_album && lowerAscii(albumArtist(track)) == wanted_artist)) {
+        const bool belongs =
+            by_folder ? track.path.parent_path() == selected_album->folder
+                      : lowerAscii(track.album) == wanted_album && lowerAscii(albumArtist(track)) == wanted_artist;
+        if (selected_album->all_music || belongs) {
             _track_indices.push_back(index);
         }
     }
