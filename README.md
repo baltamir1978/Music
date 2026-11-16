@@ -1,5 +1,69 @@
 # CardputerZero Music
 
+> **Versión propia (rama `carpetas`)** de la app oficial
+> [CardputerZero/Music](https://github.com/CardputerZero/Music), para una biblioteca en la que
+> las carpetas son listas de reproducción. Lo que cambia respecto a la oficial está en el
+> apartado siguiente; el resto del documento es el original.
+
+## Qué cambia en esta versión (0.1.8)
+
+La app oficial agrupa las canciones por sus etiquetas de álbum y artista del álbum. Si cada
+carpeta de `~/Music` es una lista («Chill», «BSO», «Sin lista»…) con canciones de cien discos
+distintos, en Cover Flow salen cientos de álbumes de una canción y las listas desaparecen.
+
+- **Cada carpeta con música es una entrada de Cover Flow**, con el nombre de la carpeta. Entra
+  lo que hay directamente en ella; una subcarpeta es otra entrada. «All Music» sigue siendo la
+  primera y lo tiene todo.
+- **Debajo del nombre** sale el artista si toda la carpeta es del mismo, y «Various Artists» si
+  no. La carátula es la de la primera canción de la carpeta que tenga una.
+- **Aleatorio desde el principio**: al acabar una canción suena otra al azar de la misma
+  carpeta. El modo se cambia como siempre (secuencial, aleatorio, repetir una) y la app
+  vuelve a aleatorio cada vez que se abre.
+- **Las canciones van por orden de nombre de fichero** dentro de cada carpeta, no por número
+  de pista.
+- Los ejemplos que trae la app (los que salen con la biblioteca vacía) siguen agrupados por
+  etiqueta, como en la oficial.
+
+### Ficheros `._*` de macOS
+
+Si la música se copió desde un Mac a un disco que no es de Mac, junto a cada canción queda un
+fichero `._nombre.mp3` de 4 KB con metadatos del Finder. La app los toma por canciones, no
+los puede abrir y avisa con «N FILES FAILED». No hacen falta para nada; se borran con:
+
+```bash
+find ~/Music -type f -name '._*' -delete
+```
+
+### Compilar e instalar esta versión
+
+Con las dependencias de «Dependencies» (más abajo) y el compilador cruzado de arm64:
+
+```bash
+./bootstrap.sh
+cmake -S . -B build/desktop -G Ninja -DMUSIC_USE_SDL=ON -DBUILD_TESTING=ON
+cmake --build build/desktop && ctest --test-dir build/desktop --output-on-failure
+
+# .deb para el aparato. ZLIB_LIBRARY sólo hace falta si no hay un zlib de arm64 instalado:
+# vale el del sysroot de M5Stack que descargan las apps hechas con la plantilla oficial.
+ZLIB_LIBRARY=/ruta/al/sysroot/usr/lib/aarch64-linux-gnu/libz.a PACKAGE_SUFFIX=carpetas1 \
+    packaging/deb/package_deb.sh
+```
+
+En el Cardputer Zero:
+
+```bash
+sudo apt install ./m5cardputerzero-music_0.1.8_carpetas1_arm64.deb
+sudo apt-mark hold m5cardputerzero-music    # que una actualización no ponga la oficial encima
+```
+
+El paquete se llama igual que el oficial y lo sustituye. Para volver a la oficial:
+`sudo apt-mark unhold m5cardputerzero-music` y reinstalarla desde la tienda del aparato.
+
+El repositorio original no declara licencia: esta copia es un *fork* para uso propio y no se
+publica en la tienda.
+
+---
+
 Local music player and indexed album browser for M5Stack CardputerZero.
 
 <img width="320" height="170" alt="cover flow" src="https://github.com/user-attachments/assets/d5d06902-9dd6-427e-acd2-5c6a81866360" />
