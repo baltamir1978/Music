@@ -182,6 +182,9 @@ void MusicKeypad::pushLinuxKey(std::uint16_t code, std::int32_t value)
         case KEY_HELP:
             key = music_key::Help;
             break;
+        case KEY_V:
+            key = music_key::Cast;
+            break;
         case KEY_MUTE:
             key = music_key::Mute;
             break;

@@ -11,6 +11,7 @@
 #include "view_models/info_page_view_model.hpp"
 #include "view_models/playback_view_model.hpp"
 #include "views/album_list_view.hpp"
+#include "views/cast_picker_view.hpp"
 #include "views/cover_flow_view.hpp"
 #include "views/info_page_view.hpp"
 #include "views/music_volume_hud.hpp"
@@ -55,6 +56,8 @@ private:
     InfoPageViewModel _help_info_page_view_model;
     InfoPageView _help_info_page_view;
     MusicVolumeHud _volume_hud;
+    CastPickerView _cast_picker;
+    std::string _last_tv_udn;
     rendering::ArtworkPaletteCache _artwork_palette_cache;
     std::filesystem::path _playback_theme_path;
     PageId _info_return_page = PageId::CoverFlow;
@@ -71,6 +74,9 @@ private:
     std::uint32_t _pressed_media_key = 0;
 
     void activateMediaShortcut(std::uint32_t key);
+    /** Teclas con la lista de teles abierta. */
+    void onCastPickerKey(std::uint32_t key, bool pressed);
+    void toggleCasting();
     void openSelectedAlbum();
     void openSelectedAlbumInfo();
     void openPlaybackPage();

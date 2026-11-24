@@ -2,12 +2,15 @@
 
 #include "models/playback_queue.hpp"
 
+#include "cast/dlna_caster.h"
+
 #include <miniaudio.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -50,6 +53,12 @@ std::string playbackError(const char* operation, ma_result result)
     return std::string(operation) + " failed (" + maResultName(result) + ")";
 }
 
+double nowSeconds()
+{
+    using namespace std::chrono;
+    return duration_cast<duration<double>>(steady_clock::now().time_since_epoch()).count();
+}
+
 }  // namespace
 
 class PlaybackModel::Impl {
@@ -90,6 +99,23 @@ public:
         _snapshot.artist = next_track.artist;
         _snapshot.duration_ms = next_track.duration_ms;
         markRevised();
+
+        if (_casting) {
+            // En la tele: aquí no se decodifica nada; la tele se baja el fichero y lo toca.
+            _caster->cast(_tv, castMedia(next_track));
+            if (start_paused) {
+                _caster->pause();
+            }
+            queueNextOnTv();
+            _tv_position = 0;
+            _tv_position_raw = -1;
+            _tv_seen = platform::CastState::Sending;
+            _snapshot.tv_name = _tv.name;
+            _snapshot.state = start_paused ? PlaybackState::Paused : PlaybackState::Playing;
+            markRevised();
+            spdlog::info("Playback: '{}' to the TV {}", _snapshot.title, _tv.name);
+            return true;
+        }
 
         ma_decoder_config decoder_config =
             ma_decoder_config_init(kPlaybackFormat, kPlaybackChannels, kPlaybackSampleRate);
@@ -144,6 +170,16 @@ public:
         if (_snapshot.track_id != track.id || _snapshot.path != track.path) {
             return play(track);
         }
+        if (_casting) {
+            if (_snapshot.state == PlaybackState::Playing || _snapshot.state == PlaybackState::Paused) {
+                _caster->toggle_pause();
+                _snapshot.state =
+                    _snapshot.state == PlaybackState::Playing ? PlaybackState::Paused : PlaybackState::Playing;
+                markRevised();
+                return true;
+            }
+            return play(track);
+        }
         if (_snapshot.state == PlaybackState::Playing) {
             pause();
             return true;
@@ -190,11 +226,19 @@ public:
         }
         _snapshot.mode = _mode;
         markRevised();
+        // La tele ya tiene apuntada la siguiente del modo de antes.
+        queueNextOnTv();
     }
 
     void pause()
     {
         if (_snapshot.state != PlaybackState::Playing) {
+            return;
+        }
+        if (_casting) {
+            _caster->pause();
+            _snapshot.state = PlaybackState::Paused;
+            markRevised();
             return;
         }
         _playing.store(false, std::memory_order_release);
@@ -205,6 +249,10 @@ public:
 
     void stop()
     {
+        if (_caster) {
+            _caster->stop();
+        }
+        _casting = false;
         _playing.store(false, std::memory_order_release);
         stopDevice();
         cleanupDecoder();
@@ -218,6 +266,11 @@ public:
 
     void update(float delta_seconds)
     {
+        if (_casting) {
+            updateFromTv();
+            updateSpectrum(std::clamp(delta_seconds, 0.0f, 0.1f));
+            return;
+        }
         updatePosition();
         updateSpectrum(std::clamp(delta_seconds, 0.0f, 0.1f));
         if (_finished.exchange(false, std::memory_order_acq_rel)) {
@@ -232,6 +285,64 @@ public:
     }
 
     PlaybackSnapshot snapshot() const { return _snapshot; }
+
+    platform::DlnaCaster& caster()
+    {
+        if (!_caster) {
+            _caster = std::make_unique<platform::DlnaCaster>();
+        }
+        return *_caster;
+    }
+
+    bool casting() const { return _casting; }
+
+    void castTo(const dlna::Renderer& tv)
+    {
+        (void)caster();
+        _tv = tv;
+        const bool was_casting = _casting;
+        _casting = true;
+        _snapshot.tv_name = tv.name;
+        markRevised();
+        const Track* track = queuedTrack();
+        if (!track || !_snapshot.hasTrack()) {
+            return; // lo siguiente que suene irá a la tele
+        }
+        // Lo que sonaba sigue en la tele desde donde iba (o desde donde iba en la otra tele).
+        const double position = was_casting ? _tv_position : static_cast<double>(_snapshot.position_ms) / 1000.0;
+        const bool paused = _snapshot.state != PlaybackState::Playing;
+        _playing.store(false, std::memory_order_release);
+        stopDevice();
+        const Track current = *track;
+        playTrack(current, paused);
+        if (position > 2.0) {
+            _caster->seek(position);
+        }
+    }
+
+    void stopCasting()
+    {
+        if (!_casting) {
+            return;
+        }
+        const double position = _tv_position;
+        const bool paused = _snapshot.state != PlaybackState::Playing;
+        _caster->stop();
+        _casting = false;
+        _snapshot.tv_name.clear();
+        markRevised();
+        const Track* track = queuedTrack();
+        if (!track || !_snapshot.hasTrack()) {
+            return;
+        }
+        const Track current = *track;
+        if (playTrack(current, true)) {
+            seekLocal(position);
+            if (!paused) {
+                (void)toggle(current);
+            }
+        }
+    }
 
 private:
     static constexpr std::size_t kNoQueueIndex = std::numeric_limits<std::size_t>::max();
@@ -255,6 +366,147 @@ private:
     PlaybackMode _mode = PlaybackMode::Shuffle;
     std::uint64_t _revision_counter = 0;
     std::uint32_t _random_state = 0x83d2e1a7U;
+    // Tele
+    std::unique_ptr<platform::DlnaCaster> _caster;
+    dlna::Renderer _tv;
+    bool _casting = false;
+    std::size_t _tv_next_index = kNoQueueIndex; // la que se le ha dado a la tele para después
+    platform::CastState _tv_seen = platform::CastState::Off;
+    double _tv_position = 0;      // segundos, contando desde la última respuesta de la tele
+    double _tv_position_raw = -1; // lo último que dijo la tele
+    double _tv_position_at = 0;   // cuándo lo dijo
+
+    /**
+     * Estado y posición según la tele. La tele se pregunta una vez por segundo: entre medias
+     * la posición se adelanta con el reloj, para que la letra no vaya a saltos.
+     */
+    static platform::CastMedia castMedia(const Track& track)
+    {
+        platform::CastMedia media;
+        media.path = track.path.string();
+        media.media_class = dlna::MediaClass::Audio;
+        media.title = track.title.empty() ? track.path.stem().string() : track.title;
+        media.artist = track.artist;
+        media.album = track.album;
+        media.cover_path = track.cover_path.string();
+        media.duration = static_cast<double>(track.duration_ms) / 1000.0;
+        return media;
+    }
+
+    /**
+     * Elige ya lo que sonará después (como playRelative al acabar una canción) y se lo da
+     * a la tele, para que lo enlace sin hueco si sabe.
+     */
+    void queueNextOnTv()
+    {
+        if (!_casting || _queue.empty() || _queue_index >= _queue.size()) {
+            return;
+        }
+        std::size_t next_index = _queue_index;
+        if (_mode == PlaybackMode::Shuffle && _queue.size() > 1) {
+            do {
+                next_index = randomQueueIndex();
+            } while (next_index == _queue_index);
+        } else if (_mode == PlaybackMode::Sequential) {
+            next_index = playback_detail::adjacentQueueIndex(_queue_index, _queue.size(), 1);
+        }
+        _tv_next_index = next_index;
+        _caster->set_next(castMedia(_queue[next_index]));
+    }
+
+    /** La tele ha pasado sola a la que se le dio: ahora suena esa. */
+    void adoptNextFromTv()
+    {
+        if (_tv_next_index >= _queue.size()) {
+            return;
+        }
+        _queue_index = _tv_next_index;
+        const Track& track = _queue[_queue_index];
+        resetWaveform();
+        const PlaybackMode mode = _snapshot.mode;
+        _snapshot = {};
+        _snapshot.mode = mode;
+        _snapshot.track_id = track.id;
+        _snapshot.path = track.path;
+        _snapshot.title = track.title.empty() ? track.path.stem().string() : track.title;
+        _snapshot.artist = track.artist;
+        _snapshot.duration_ms = track.duration_ms;
+        _snapshot.tv_name = _tv.name;
+        _snapshot.state = PlaybackState::Playing;
+        _tv_position = 0;
+        _tv_position_raw = -1;
+        markRevised();
+        spdlog::info("Playback: the TV went on to '{}'", _snapshot.title);
+        queueNextOnTv();
+    }
+
+    void updateFromTv()
+    {
+        if (_caster->take_advanced()) {
+            adoptNextFromTv();
+        }
+        const auto state = _caster->state();
+        if (state != _tv_seen) {
+            _tv_seen = state;
+            switch (state) {
+                case platform::CastState::Playing:
+                    _snapshot.state = PlaybackState::Playing;
+                    markRevised();
+                    break;
+                case platform::CastState::Paused:
+                    _snapshot.state = PlaybackState::Paused;
+                    markRevised();
+                    break;
+                case platform::CastState::Error:
+                    setError(_caster->error());
+                    break;
+                default:
+                    break;
+            }
+        }
+        if (_caster->take_finished()) {
+            spdlog::info("Playback: '{}' ended on the TV", _snapshot.title);
+            if (!playRelative(1, true)) {
+                _snapshot.state = PlaybackState::Stopped;
+                markRevised();
+            }
+            return;
+        }
+        if (state == platform::CastState::Stopped && _snapshot.state == PlaybackState::Playing) {
+            // Parada con el mando de la tele, sin llegar al final: aquí queda en pausa.
+            _snapshot.state = PlaybackState::Paused;
+            markRevised();
+        }
+
+        const double raw = _caster->position();
+        const double now = nowSeconds();
+        if (raw != _tv_position_raw) {
+            _tv_position_raw = raw;
+            _tv_position_at = now;
+        }
+        _tv_position = raw;
+        if (_snapshot.state == PlaybackState::Playing && state == platform::CastState::Playing) {
+            _tv_position += std::min(now - _tv_position_at, 1.5);
+        }
+        _snapshot.position_ms = static_cast<std::int64_t>(_tv_position * 1000.0);
+        if (const double duration = _caster->duration(); duration > 0) {
+            _snapshot.duration_ms = static_cast<std::int64_t>(duration * 1000.0);
+        }
+    }
+
+    void seekLocal(double seconds)
+    {
+        if (seconds <= 0) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(_decoder_mutex);
+        if (_decoder_initialized) {
+            const auto frame = static_cast<ma_uint64>(seconds * kPlaybackSampleRate);
+            if (_total_frames == 0 || frame < _total_frames) {
+                ma_decoder_seek_to_pcm_frame(&_decoder, frame);
+            }
+        }
+    }
 
     void markRevised() { _snapshot.revision = ++_revision_counter; }
 
@@ -505,5 +757,13 @@ void PlaybackModel::stop() { _impl->stop(); }
 void PlaybackModel::update(float delta_seconds) { _impl->update(delta_seconds); }
 
 PlaybackSnapshot PlaybackModel::snapshot() const { return _impl->snapshot(); }
+
+platform::DlnaCaster& PlaybackModel::caster() { return _impl->caster(); }
+
+void PlaybackModel::castTo(const dlna::Renderer& tv) { _impl->castTo(tv); }
+
+void PlaybackModel::stopCasting() { _impl->stopCasting(); }
+
+bool PlaybackModel::casting() const { return _impl->casting(); }
 
 }  // namespace music

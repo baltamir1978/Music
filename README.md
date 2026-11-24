@@ -5,7 +5,7 @@
 > las carpetas son listas de reproducción. Lo que cambia respecto a la oficial está en el
 > apartado siguiente; el resto del documento es el original.
 
-## Qué cambia en esta versión (0.1.8)
+## Qué cambia en esta versión (0.2.0)
 
 La app oficial agrupa las canciones por sus etiquetas de álbum y artista del álbum. Si cada
 carpeta de `~/Music` es una lista («Chill», «BSO», «Sin lista»…) con canciones de cien discos
@@ -23,6 +23,41 @@ distintos, en Cover Flow salen cientos de álbumes de una canción y las listas 
   de pista.
 - Los ejemplos que trae la app (los que salen con la biblioteca vacía) siguen agrupados por
   etiqueta, como en la oficial.
+- **Oírla en la tele (0.2.0)**: `V` busca las teles de la red (DLNA) y con `Enter` la música
+  pasa a sonar en la elegida, desde donde iba. Ver el apartado siguiente.
+
+### Oír la música en la tele
+
+Desde cualquier página, `V` abre la lista de teles y altavoces DLNA de la red; `Enter` elige.
+Lo que estaba sonando sigue en la tele desde donde iba, y lo que se ponga después también va a
+ella. Otra `V` la devuelve al Cardputer, también desde donde iba. Salir de la app para la tele.
+
+- La tele no recibe una copia: se baja cada canción del Cardputer, que hace de servidor mientras
+  se está mandando (sólo da las canciones mandadas, con una dirección imposible de adivinar).
+  Decodifica la tele; el Cardputer apenas gasta. Le llegan también el título, el artista, el
+  álbum y la carátula, que la tele enseña a su manera.
+- **Al acabar una canción sigue la siguiente** según el modo (aleatorio, en orden, repetir).
+  Si la tele sabe encadenar (`SetNextAVTransportURI`, como la LG), se le da la siguiente por
+  adelantado y cambia ella sola, casi sin hueco; si no, el Cardputer ve que ha acabado y le
+  manda la siguiente (un par de segundos de silencio). Si la paras con el mando de la tele, no
+  salta a otra: queda en pausa.
+- Pausa, anterior y siguiente (`Fn`+`Q`/`W`/`E`) y el **volumen** (`Fn`+`A`/`S`/`D`) van a la
+  tele mientras suena en ella; el volumen, de 2 en 2 (en la tele, de 5 en 5 es mucho).
+- La letra sincronizada sigue funcionando: la posición la da la tele una vez por segundo y la
+  app la adelanta con el reloj entre medias.
+- En la pantalla de reproducción, debajo del título pone **«On TV •»** delante del artista.
+- Tienen que estar en la misma red (las teles se buscan por multicast, que no pasa por
+  Tailscale). `ZEROGALLERY_TV=<url de la descripción>` añade una a mano y
+  `ZEROGALLERY_DLNA_DEBUG=1` cuenta lo que pasa (el nombre viene de ZeroGallery: es el mismo
+  código, en `src/cast/`).
+- Las Google TV no traen DLNA (sólo Chromecast), salvo las Sony. Con **Kodi** instalado y
+  «Permitir control remoto por UPnP» activado, salen en la lista como una tele más.
+
+Probado con una LG webOS de 2018 (50UK6500PLA): búsqueda, poner una canción, pausa, siguiente,
+volumen, paso a la siguiente al acabar (con y sin encadenar), volver al Cardputer desde donde
+iba y salir con la tele sonando. Samsung, Sony y Hisense, sin probar. Abrir «All Music» con
+casi 2000 canciones tarda un rato en el aparato: crea una fila por canción (es así en la
+oficial), no tiene que ver con esto.
 
 ### Ficheros `._*` de macOS
 
@@ -52,7 +87,7 @@ ZLIB_LIBRARY=/ruta/al/sysroot/usr/lib/aarch64-linux-gnu/libz.a PACKAGE_SUFFIX=ca
 En el Cardputer Zero:
 
 ```bash
-sudo apt install ./m5cardputerzero-music_0.1.8_carpetas1_arm64.deb
+sudo apt install ./m5cardputerzero-music_0.2.0_carpetas1_arm64.deb
 sudo apt-mark hold m5cardputerzero-music    # que una actualización no ponga la oficial encima
 ```
 

@@ -30,5 +30,7 @@ constexpr std::uint32_t VolumeUp = 0x10012;
 // The keyboard firmware emits KEY_MUTE for the Fn + A shortcut.
 constexpr std::uint32_t Mute = 0x10013;
 constexpr std::uint32_t NowPlaying = Key8;
+// V: mandar la música a una tele por DLNA (o volver a oírla aquí).
+constexpr std::uint32_t Cast = 0x10014;
 
 }  // namespace music::music_key

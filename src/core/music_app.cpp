@@ -4,6 +4,7 @@
 #include "assets/runtime_assets.hpp"
 #include "core/music_guides.hpp"
 #include "input/music_keys.hpp"
+#include "cast/dlna_caster.h"
 
 #include <lvgl.h>
 #include <spdlog/spdlog.h>
@@ -20,6 +21,8 @@ namespace music {
 namespace {
 
 constexpr int kVolumeShortcutDeltaPercent = 5;
+// En la tele el volumen va de 0 a 100 y el 5 % es un salto grande.
+constexpr int kTvVolumeDelta = 2;
 constexpr std::uint32_t kEscLongPressMs = 700;
 
 #if MUSIC_USE_SDL
@@ -136,6 +139,7 @@ void MusicApp::stop()
             _info_page_view_model.onExit();
             break;
     }
+    _cast_picker.close();
     _volume_hud.shutdown();
     _playback.stop();
     _artwork_palette_cache.clear();
@@ -146,6 +150,16 @@ void MusicApp::stop()
 
 void MusicApp::onKey(std::uint32_t key, bool pressed)
 {
+    if (_cast_picker.isOpen()) {
+        onCastPickerKey(key, pressed);
+        return;
+    }
+    if (key == music_key::Cast) {
+        if (pressed) {
+            toggleCasting();
+        }
+        return;
+    }
     if (key == music_key::Escape) {
         if (pressed) {
             if (_esc_pressed) {
@@ -173,6 +187,15 @@ void MusicApp::onKey(std::uint32_t key, bool pressed)
     }
 
     if (key == music_key::VolumeDown || key == music_key::VolumeUp) {
+        if (pressed && _playback.casting()) {
+            // Sonando en la tele, el volumen es el de la tele.
+            const int volume = _playback.caster().change_volume(key == music_key::VolumeUp ? kTvVolumeDelta
+                                                                                            : -kTvVolumeDelta);
+            if (volume >= 0) {
+                _volume_hud.showVolume(volume);
+            }
+            return;
+        }
         if (pressed) {
             const int delta = key == music_key::VolumeUp ? kVolumeShortcutDeltaPercent : -kVolumeShortcutDeltaPercent;
 #if MUSIC_USE_SDL
@@ -276,6 +299,10 @@ void MusicApp::activateMediaShortcut(std::uint32_t key)
         (void)_playback.toggleCurrent();
     } else if (key == music_key::Next) {
         (void)_playback.next();
+    } else if (key == music_key::Mute && _playback.casting()) {
+        auto& caster = _playback.caster();
+        const bool muted = caster.toggle_mute();
+        _volume_hud.showMute(muted, std::max(0, caster.volume()));
     } else if (key == music_key::Mute) {
 #if MUSIC_USE_SDL
         _desktop_volume_muted = !_desktop_volume_muted;
@@ -292,10 +319,53 @@ void MusicApp::activateMediaShortcut(std::uint32_t key)
     }
 }
 
+void MusicApp::onCastPickerKey(std::uint32_t key, bool pressed)
+{
+    if (!pressed) {
+        return;
+    }
+    if (key == music_key::Up) {
+        _cast_picker.move(-1);
+    } else if (key == music_key::Down) {
+        _cast_picker.move(1);
+    } else if (key == music_key::Enter || key == music_key::Right) {
+        dlna::Renderer tv;
+        if (_cast_picker.selected(tv)) {
+            _cast_picker.close();
+            _playback.caster().stop_discovery();
+            _last_tv_udn = tv.udn;
+            spdlog::info("MusicApp: playing on the TV {}", tv.name);
+            _playback.castTo(tv);
+        }
+    } else if (key == music_key::Escape || key == music_key::Cast) {
+        _cast_picker.close();
+        _playback.caster().stop_discovery();
+    } else if (isMediaShortcut(key) || key == music_key::VolumeDown || key == music_key::VolumeUp) {
+        // Los atajos de reproducción siguen valiendo con la lista abierta.
+        _cast_picker.close();
+        _playback.caster().stop_discovery();
+        onKey(key, true);
+        onKey(key, false);
+    }
+}
+
+void MusicApp::toggleCasting()
+{
+    if (_playback.casting()) {
+        spdlog::info("MusicApp: back to playing here");
+        _playback.stopCasting();
+        return;
+    }
+    auto& caster = _playback.caster();
+    caster.start_discovery();
+    _cast_picker.open(lv_layer_top(), caster, _last_tv_udn);
+}
+
 void MusicApp::update(float delta_seconds)
 {
     _playback.update(delta_seconds);
     _volume_hud.update(delta_seconds);
+    _cast_picker.update();
 
     if (_esc_exit_armed && (_router.page() != PageId::CoverFlow || _help_active)) {
         _esc_exit_armed = false;
@@ -450,6 +520,7 @@ void MusicApp::showHelpPage()
         "Listen to music in the current user's \"music\" directory, with album artwork and lyrics.\n\n"
         "Sample music is hidden when the \"music\" directory contains music.\n\n"
         "Number keys 4-8: operations\n"
+        "V: play on a TV (DLNA) / play here again\n"
 #if MUSIC_USE_SDL
         "Q / W / E: play-pause / previous / next\n"
         "A / S / D: simulate mute / volume down / up",

@@ -399,6 +399,10 @@ void PlaybackView::refreshContent()
         updateCover(track);
         updateMetadata(playback);
     }
+    if (playback.tv_name != _shown_tv_name) {
+        _shown_tv_name = playback.tv_name;
+        updateMetadata(playback);
+    }
     updateLyrics();
     if (playback.state != _shown_state || playback.mode != _shown_mode) {
         _shown_state = playback.state;
@@ -479,7 +483,9 @@ void PlaybackView::updateControls()
 void PlaybackView::updateMetadata(const PlaybackSnapshot& playback)
 {
     _track_title->setText(playback.title.empty() ? "Unknown Title" : playback.title);
-    _track_artist->setText(playback.artist.empty() ? "Unknown Artist" : playback.artist);
+    const std::string artist = playback.artist.empty() ? "Unknown Artist" : playback.artist;
+    // Sonando en la tele, que se vea.
+    _track_artist->setText(playback.tv_name.empty() ? artist : "On TV \u2022 " + artist);
 }
 
 void PlaybackView::updateProgress(const PlaybackSnapshot& playback)

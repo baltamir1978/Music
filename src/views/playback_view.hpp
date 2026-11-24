@@ -48,6 +48,7 @@ private:
     lv_image_dsc_t _cover_descriptor{};
     std::filesystem::path _shown_cover_path;
     std::int64_t _shown_track_id = 0;
+    std::string _shown_tv_name;
     PlaybackState _shown_state = PlaybackState::Stopped;
     PlaybackMode _shown_mode = PlaybackMode::Sequential;
     bool _shown_has_lyrics = false;
