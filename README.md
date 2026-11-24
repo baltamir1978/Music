@@ -5,7 +5,7 @@
 > las carpetas son listas de reproducción. Lo que cambia respecto a la oficial está en el
 > apartado siguiente; el resto del documento es el original.
 
-## Qué cambia en esta versión (0.2.0)
+## Qué cambia en esta versión (0.3.0)
 
 La app oficial agrupa las canciones por sus etiquetas de álbum y artista del álbum. Si cada
 carpeta de `~/Music` es una lista («Chill», «BSO», «Sin lista»…) con canciones de cien discos
@@ -23,12 +23,14 @@ distintos, en Cover Flow salen cientos de álbumes de una canción y las listas 
   de pista.
 - Los ejemplos que trae la app (los que salen con la biblioteca vacía) siguen agrupados por
   etiqueta, como en la oficial.
-- **Oírla en la tele (0.2.0)**: `V` busca las teles de la red (DLNA) y con `Enter` la música
-  pasa a sonar en la elegida, desde donde iba. Ver el apartado siguiente.
+- **Oírla en la tele (0.2.0) o en un Chromecast / Google TV / Nest (0.3.0)**: `V` busca las
+  teles y altavoces de la red (DLNA y Google Cast) y con `Enter` la música pasa a sonar en el
+  elegido, desde donde iba. Ver el apartado siguiente.
 
 ### Oír la música en la tele
 
-Desde cualquier página, `V` abre la lista de teles y altavoces DLNA de la red; `Enter` elige.
+Desde cualquier página, `V` abre la lista de teles y altavoces de la red, DLNA y Google Cast
+(Chromecast, Google TV, Nest Hub, Nest Audio…); `Enter` elige.
 Lo que estaba sonando sigue en la tele desde donde iba, y lo que se ponga después también va a
 ella. Otra `V` la devuelve al Cardputer, también desde donde iba. Salir de la app para la tele.
 
@@ -50,8 +52,11 @@ ella. Otra `V` la devuelve al Cardputer, también desde donde iba. Salir de la a
   Tailscale). `ZEROGALLERY_TV=<url de la descripción>` añade una a mano y
   `ZEROGALLERY_DLNA_DEBUG=1` cuenta lo que pasa (el nombre viene de ZeroGallery: es el mismo
   código, en `src/cast/`).
-- Las Google TV no traen DLNA (sólo Chromecast), salvo las Sony. Con **Kodi** instalado y
-  «Permitir control remoto por UPnP» activado, salen en la lista como una tele más.
+- **Google Cast** sale con el modelo entre paréntesis («Salón (Google Nest Hub)»). Se usa el
+  reproductor de Google, que abre MP3, AAC/M4A, FLAC, OGG y WAV (no WMA, APE ni AIFF), y enseña
+  título, artista y carátula. No encadena la siguiente como la LG: se le manda al acabar,
+  que en un Nest Hub es casi inmediato. Probado con un Google Nest Hub; un Chromecast con
+  Google TV, sin probar.
 
 Probado con una LG webOS de 2018 (50UK6500PLA): búsqueda, poner una canción, pausa, siguiente,
 volumen, paso a la siguiente al acabar (con y sin encadenar), volver al Cardputer desde donde
@@ -87,7 +92,7 @@ ZLIB_LIBRARY=/ruta/al/sysroot/usr/lib/aarch64-linux-gnu/libz.a PACKAGE_SUFFIX=ca
 En el Cardputer Zero:
 
 ```bash
-sudo apt install ./m5cardputerzero-music_0.2.0_carpetas1_arm64.deb
+sudo apt install ./m5cardputerzero-music_0.3.0_carpetas1_arm64.deb
 sudo apt-mark hold m5cardputerzero-music    # que una actualización no ponga la oficial encima
 ```
 

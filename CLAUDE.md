@@ -20,11 +20,12 @@ En el aparato (`ssh cpzero`): `sudo dpkg -i` del `.deb` (el paquete está reteni
 `project(... VERSION)` del `CMakeLists.txt`; el `.deb` se copia a
 `~/Documentos/Software/Music-carpetas-<versión>.deb` sustituyendo al anterior.
 
-## Mandar a la tele (0.2.0)
+## Mandar a la tele (0.2.0) y a Google Cast (0.3.0)
 
-- `src/cast/dlna.*` y `src/cast/dlna_caster.*` son **los mismos ficheros que en ZeroGallery**
-  (`src/model/dlna.*`, `src/platform/dlna_caster.*`), igual que `tests/dlna_test.cpp` y
-  `tests/fixtures`. Un arreglo en uno se copia tal cual al otro (y se pasan las pruebas de
+- `src/cast/dlna.*`, `gcast.*`, `dlna_caster.*` y `google_cast.*` son **los mismos ficheros que
+  en ZeroGallery** (`src/model/` y `src/platform/`), igual que `tests/dlna_test.cpp`,
+  `tests/gcast_test.cpp` y `tests/fixtures`. Cómo probar Cast desde `granja-pi`, en el
+  `CLAUDE.md` de ZeroGallery. Un arreglo en uno se copia tal cual al otro (y se pasan las pruebas de
   los dos). Las decisiones y lo aprendido de cada tele están en el `CLAUDE.md` de ZeroGallery.
 - Aquí la tele es otra salida de `PlaybackModel`: con `_casting`, `playTrack` manda la canción
   a la tele en vez de abrir miniaudio, `update` lee de la tele estado y posición
@@ -42,6 +43,9 @@ En el aparato (`ssh cpzero`): `sudo dpkg -i` del `.deb` (el paquete está reteni
 
 ## Estado
 
+- **0.3.0 (24-nov-2026)**: Google Cast (Chromecast, Google TV, Nest). El código compartido
+  se probó con un Google Nest Hub de la granja (música con carátula, su final, pausa,
+  volumen); la app, en el aparato con la LG. **Sin probar por Bruno.**
 - **0.2.0 (24-nov-2026)**: música en la tele por DLNA. Probado por Claude desde el aparato con
   la LG de Bruno (ver README). **Sin probar por Bruno.**
 - **0.1.8 (16-nov-2026)**: carpetas en vez de álbumes y aleatorio por defecto.

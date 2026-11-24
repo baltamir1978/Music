@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(M5CardputerZeroMusic VERSION 0.2.0 LANGUAGES C CXX ASM)
+project(M5CardputerZeroMusic VERSION 0.3.0 LANGUAGES C CXX ASM)
 
 option(MUSIC_USE_SDL "Use LVGL's SDL backend for desktop testing" ON)
 if(NOT DEFINED MUSIC_USE_PULSEAUDIO)
@@ -255,7 +255,7 @@ set_target_properties(${MUSIC_BIN_NAME} PROPERTIES
 )
 
 if(BUILD_TESTING)
-    # DLNA: los mismos ficheros y pruebas que ZeroGallery.
+    # DLNA y Google Cast: los mismos ficheros y pruebas que ZeroGallery.
     add_executable(music_dlna_tests
         tests/dlna_test.cpp
         src/cast/dlna.cpp
@@ -263,6 +263,13 @@ if(BUILD_TESTING)
     target_include_directories(music_dlna_tests PRIVATE "${MUSIC_SRC_DIR}/cast")
     target_compile_definitions(music_dlna_tests PRIVATE FIXTURES_DIR="${MUSIC_ROOT}/tests/fixtures")
     add_test(NAME music_dlna COMMAND music_dlna_tests)
+    add_executable(music_gcast_tests
+        tests/gcast_test.cpp
+        src/cast/gcast.cpp
+    )
+    target_include_directories(music_gcast_tests PRIVATE "${MUSIC_SRC_DIR}/cast")
+    target_compile_definitions(music_gcast_tests PRIVATE FIXTURES_DIR="${MUSIC_ROOT}/tests/fixtures")
+    add_test(NAME music_gcast COMMAND music_gcast_tests)
 
     add_executable(music_playback_queue_tests
         tests/playback_queue_test.cpp
