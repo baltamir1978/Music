@@ -45,7 +45,7 @@ En el aparato (`ssh cpzero`): `sudo dpkg -i` del `.deb` (el paquete está reteni
 
 - **0.3.0 (24-nov-2026)**: Google Cast (Chromecast, Google TV, Nest). El código compartido
   se probó con un Google Nest Hub de la granja (música con carátula, su final, pausa,
-  volumen); la app, en el aparato con la LG. **Sin probar por Bruno.**
+  volumen); la app, en el aparato con la LG. **Probada por Bruno (28-nov-2026): «ok».**
 - **0.2.0 (24-nov-2026)**: música en la tele por DLNA. Probado por Claude desde el aparato con
-  la LG de Bruno (ver README). **Sin probar por Bruno.**
+  la LG de Bruno (ver README). **Probada por Bruno (28-nov-2026).**
 - **0.1.8 (16-nov-2026)**: carpetas en vez de álbumes y aleatorio por defecto.
